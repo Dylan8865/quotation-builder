@@ -1,0 +1,55 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 179 44" width="716" height="176">
+  <title>Lightman Consulting</title>
+  <defs>
+    <clipPath id="cap"><rect x="78" y="10.33" width="56" height="15.11"/></clipPath>
+  </defs>
+
+  <!-- LIGHT -->
+  <g fill="#2D245A">
+    <rect x="15.78" y="10.33" width="2.44" height="15.11"/>
+    <rect x="15.78" y="23.33" width="9.22" height="2.11"/>
+    <rect x="27.78" y="10.33" width="2.44" height="15.11"/>
+    <rect x="45.0" y="17.78" width="2.44" height="3.3"/>
+    <rect x="41.0" y="17.78" width="6.44" height="1.95"/>
+    <rect x="51.0" y="10.33" width="2.4" height="15.11"/>
+    <rect x="60.15" y="10.33" width="2.4" height="15.11"/>
+    <rect x="51.0" y="16.78" width="11.5" height="2.22"/>
+    <rect x="65.67" y="10.33" width="11.66" height="2.11"/>
+    <rect x="69.33" y="10.33" width="2.34" height="15.11"/>
+  </g>
+  <path d="M45.60 14.08 A5.98 6.5 0 1 0 46.22 20.55" fill="none" stroke="#2D245A" stroke-width="2.44"/>
+
+  <!-- MAN -->
+  <g clip-path="url(#cap)" fill="none" stroke="#2754A0" stroke-width="1.0" stroke-linejoin="miter" stroke-miterlimit="12">
+    <polyline points="81.2,27 81.2,10.33 88.25,25.0 95.3,10.33 95.3,27"/>
+    <polyline points="99.72,26 107.1,11.0 114.48,26"/>
+    <line x1="102.55" y1="20.2" x2="111.65" y2="20.2" stroke-width="0.9"/>
+    <polyline points="119.2,27 119.2,10.33 129.6,25.44 129.6,9"/>
+  </g>
+
+  <!-- CONSULTING -->
+  <g fill="#9A9A9A" font-family="'Century Gothic', Montserrat, Futura, 'Segoe UI', Arial, sans-serif" font-size="4.7" text-anchor="middle">
+    <text x="41.8" y="34.9">C</text>
+    <text x="49.3" y="34.9">O</text>
+    <text x="57.3" y="34.9">N</text>
+    <text x="64.2" y="34.9">S</text>
+    <text x="71.2" y="34.9">U</text>
+    <text x="78.2" y="34.9">L</text>
+    <text x="83.8" y="34.9">T</text>
+    <text x="91.5" y="34.9">I</text>
+    <text x="97.3" y="34.9">N</text>
+    <text x="104.8" y="34.9">G</text>
+  </g>
+
+  <!-- mark -->
+  <polygon fill="#19BFE7" points="158.5,10.5 170.5,22.5 158.5,34.5 146.5,22.5"/>
+  <polygon fill="#044F80" points="152.5,16.5 164.5,16.5 158.5,22.5"/>
+  <polygon fill="#044F80" points="152.5,28.5 164.5,28.5 158.5,22.5"/>
+  <polygon fill="#2D245A" points="164.5,16.5 170.5,22.5 164.5,28.5 158.5,22.5"/>
+  <g fill="#D7E47C">
+    <polygon points="146.5,10.5 158.5,10.5 152.5,16.5"/>
+    <polygon points="140.5,16.5 152.5,16.5 146.5,22.5"/>
+    <polygon points="140.5,28.5 152.5,28.5 146.5,22.5"/>
+    <polygon points="146.5,34.5 158.5,34.5 152.5,28.5"/>
+  </g>
+</svg>

@@ -1,0 +1,874 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Quotation Builder</title>
+<style>
+  :root {
+    --navy: #1f2a5c;
+    --teal: #1aa6a6;
+    --ink: #1c2030;
+    --muted: #6a7085;
+    --line: #d9dce6;
+    --bg: #eef0f5;
+    --panel: #ffffff;
+    --danger: #b3261e;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; }
+  body { font-family: "Segoe UI", system-ui, -apple-system, Arial, sans-serif; color: var(--ink); background: var(--bg); font-size: 14px; }
+  button, input, select, textarea { font: inherit; color: inherit; }
+
+  .app { display: grid; grid-template-columns: minmax(360px, 480px) 1fr; height: 100vh; }
+  .panel { background: var(--panel); border-right: 1px solid var(--line); display: flex; flex-direction: column; min-height: 0; }
+  .topbar { padding: 14px 18px; border-bottom: 1px solid var(--line); display: flex; align-items: center; gap: 10px; }
+  .topbar h1 { font-size: 16px; margin: 0; flex: 1; color: var(--navy); }
+  .form { overflow-y: auto; padding: 4px 18px 40px; flex: 1; }
+  .preview { overflow: auto; padding: 24px; }
+
+  .btn { border: 1px solid var(--line); background: #fff; border-radius: 6px; padding: 7px 12px; cursor: pointer; }
+  .btn:hover { border-color: var(--navy); }
+  .btn.primary { background: var(--navy); border-color: var(--navy); color: #fff; font-weight: 600; }
+  .btn.primary:hover { background: #2c3a7a; }
+  .btn.small { padding: 3px 8px; font-size: 12px; }
+  .btn.danger { color: var(--danger); }
+
+  section { padding: 16px 0 6px; border-bottom: 1px solid var(--line); }
+  section:last-child { border-bottom: 0; }
+  section > h2 { font-size: 13px; text-transform: uppercase; letter-spacing: .06em; color: var(--navy); margin: 0 0 10px; }
+  section > h2 small { text-transform: none; letter-spacing: 0; color: var(--muted); font-weight: 400; margin-left: 6px; }
+  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px 10px; margin-bottom: 10px; }
+  .grid .full { grid-column: 1 / -1; }
+  label { display: block; font-size: 12px; color: var(--muted); }
+  label > input, label > select, label > textarea { display: block; width: 100%; margin-top: 3px; }
+  input[type=text], input[type=number], input[type=date], input[type=email], select, textarea {
+    border: 1px solid var(--line); border-radius: 5px; padding: 6px 8px; background: #fff; color: var(--ink); min-width: 0;
+  }
+  input:focus, select:focus, textarea:focus { outline: 2px solid var(--teal); outline-offset: -1px; }
+  textarea { resize: vertical; line-height: 1.35; }
+  .check { display: flex; align-items: center; gap: 6px; font-size: 13px; color: var(--ink); }
+  label.check > input { display: inline-block; width: auto; margin: 0; }
+  input[hidden] { display: none !important; }
+  .ocr { border: 1.5px dashed #9aa3c0; border-radius: 8px; padding: 10px 12px; margin-bottom: 12px; background: #f6f7fb; font-size: 12px; color: var(--muted); }
+  .ocr.over { border-color: var(--teal); background: #e8f6f6; }
+  .ocr b { display: block; color: var(--navy); font-size: 13px; margin-bottom: 2px; }
+  .ocr .btn { display: inline-block; margin-left: 4px; color: var(--ink); }
+  #ocrStatus { margin-top: 6px; color: var(--ink); white-space: pre-line; }
+  #ocrStatus:empty { display: none; }
+  .hint { font-size: 12px; color: var(--muted); margin: 0 0 10px; }
+  .chips { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 10px; }
+  .chip { border: 1px solid var(--line); background: #f6f7fb; border-radius: 999px; padding: 4px 10px; font-size: 12px; cursor: pointer; }
+  .chip:hover { border-color: var(--teal); background: #e8f6f6; }
+
+  .item { border: 1px solid var(--line); border-radius: 8px; padding: 10px; margin-bottom: 10px; background: #fafbfd; }
+  .item-head { display: flex; align-items: center; gap: 6px; margin-bottom: 8px; }
+  .item-head .no { font-weight: 700; color: var(--navy); width: 22px; }
+  .item-head select { flex: 1; padding: 4px 6px; font-size: 12px; }
+  .item-row { display: grid; grid-template-columns: 1fr 1fr 1.2fr 1fr; gap: 6px; margin-top: 8px; }
+  .item-foot { display: flex; justify-content: space-between; align-items: center; margin-top: 8px; font-size: 12px; color: var(--muted); }
+  .item-foot b { color: var(--ink); font-size: 13px; }
+
+  details.clause { border: 1px solid var(--line); border-radius: 6px; margin-bottom: 6px; background: #fafbfd; }
+  details.clause summary { padding: 6px 8px; cursor: pointer; display: flex; gap: 8px; align-items: center; font-size: 13px; }
+  details.clause textarea { width: calc(100% - 16px); margin: 0 8px 8px; font-size: 12px; }
+  details.clause.off summary span { text-decoration: line-through; color: var(--muted); }
+
+  /* ---------- The quotation document (matches the reference PDFs) ---------- */
+  .paper { font-family: Calibri, Carlito, "Segoe UI", Arial, sans-serif; font-size: 9.5pt; line-height: 1.3; color: #000; font-variant-ligatures: none; }
+  .paper * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  /* Every A4 page is a fixed 210 x 297 mm sheet: 25 mm header (logo + name), 255 mm body, 17 mm footer (page no.) */
+  .sheet { width: 210mm; height: 297mm; margin: 0 auto 18px; background: #fff; padding: 0 18mm; box-shadow: 0 2px 14px rgba(20, 25, 60, .15); overflow: hidden; }
+  .ph { height: 25mm; display: flex; justify-content: space-between; align-items: center; padding: 0 0 2mm 3mm; }
+  .ph img { display: block; width: 35mm; height: 8.6mm; }
+  .ph span { font-weight: 700; font-size: 14pt; color: #0070C0; }
+  .sb { height: 255mm; overflow: hidden; }
+  .pf { height: 17mm; padding-top: 3mm; text-align: right; font-size: 11pt; line-height: 1.2; }
+
+  .d-co { text-align: right; font-size: 7.5pt; line-height: 3.7mm; padding-right: 1mm; }
+  .d-for { background: #DDEBF7; font-weight: 700; font-size: 11pt; height: 5.3mm; line-height: 5.3mm; padding-left: 1.6mm; white-space: pre; overflow: hidden; }
+  .d-meta { background: #F2F2F2; padding: 2.2mm 0 3.2mm; }
+  .d-meta table { border-collapse: collapse; width: 100%; table-layout: fixed; }
+  .d-meta td { padding: 0; height: 4.25mm; line-height: 4.25mm; vertical-align: top; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .d-meta td.l1 { width: 26mm; padding-left: 9mm; font-weight: 700; }
+  .d-meta td.v1 { width: 54mm; }
+  .d-meta td.l2 { width: 29.5mm; text-align: right; font-weight: 700; padding-right: 1.5mm; }
+  .d-title { background: #DDEBF7; text-align: center; font-weight: 700; font-size: 11.5pt; height: 9.6mm; line-height: 9.6mm; }
+  .d-dear { padding: 1.2mm 0 0 0.6mm; line-height: 4.8mm; }
+
+  .d-items { width: 100%; border-collapse: collapse; table-layout: fixed; margin-top: 4.6mm; font-size: 9pt; line-height: 4.2mm; }
+  .d-items th { background: #0070C0; color: #fff; font-weight: 700; font-size: 8.5pt; height: 9.6mm; padding: 0 1mm; text-align: center; vertical-align: middle; border: 1.5pt solid #000; }
+  .d-items td { border: 1.5pt solid #000; padding: 5.6mm 1mm; text-align: center; vertical-align: middle; overflow-wrap: break-word; }
+  .d-items td.desc { text-align: left; white-space: pre-line; padding-left: 0.6mm; }
+  .d-items tr { break-inside: avoid; }
+  .d-items tr.sum td { padding: 0 1mm; height: 4.6mm; line-height: 4.4mm; border: 0.75pt solid #000; }
+  .d-items tr.sum td.gap { border: 0; }
+  .d-items tr.sum td.lbl { background: #E7E6E6; }
+  .d-items tr.sum.total td { height: 7.1mm; font-weight: 700; font-size: 11pt; border: 1.5pt solid #000; }
+  .d-items tr.sum.total td.gap { border: 0; }
+  .d-note { margin-top: 3mm; font-weight: 700; white-space: pre-line; }
+
+  .d-tc { width: 100%; border-collapse: collapse; table-layout: fixed; font-size: 7pt; line-height: 3.45mm; }
+  .d-tc td { padding: 0; vertical-align: top; }
+  .d-tc .tc-head { display: flex; justify-content: space-between; font-size: 9pt; line-height: 4.4mm; padding: 1.5mm 1mm 1.6mm 9mm; }
+  .d-tc .tc-head b { font-weight: 700; }
+  .d-tc .tc-band { background: #0070C0; color: #fff; font-weight: 700; font-size: 9pt; text-align: center; height: 5.4mm; line-height: 5.4mm; }
+  .d-tc tr.cl { break-inside: avoid; }
+  .d-tc tr.cl td { padding-top: 0.75mm; }
+  .d-tc td.n { width: 9mm; text-align: right; font-weight: 700; padding-right: 0.8mm; font-size: 7.5pt; }
+  .d-tc .sub { padding-top: 0.5mm; }
+  .d-end { break-inside: avoid; }
+  .d-accept { font-size: 7.5pt; font-weight: 700; line-height: 3.6mm; padding: 3mm 0 3.4mm; }
+  .d-sign { display: grid; grid-template-columns: 66.5mm 1fr 64.5mm; font-size: 8.5pt; line-height: 4.2mm; break-inside: avoid; }
+  .d-sign.alone { margin-top: 14mm; }
+  .d-sign b { display: block; font-weight: 700; }
+  .d-sign .right b { text-align: right; }
+  .d-sign .box { height: 10.5mm; border-bottom: 1.5pt solid #000; margin-bottom: 0.6mm; }
+  .d-sign .box img { display: block; height: 9.5mm; width: auto; max-width: 36mm; margin-left: 26.5mm; }
+  .d-sign .date { padding-left: 20.5mm; white-space: nowrap; }
+
+  @media (max-width: 900px) {
+    .app { display: block; height: auto; }
+    .panel { border-right: 0; }
+    .form { overflow: visible; }
+    .preview { padding: 12px; }
+  }
+  @media print {
+    html, body { height: auto; margin: 0; background: #fff; }
+    .panel { display: none !important; }
+    .app { display: block; height: auto; }
+    .preview { padding: 0; overflow: visible; }
+    /* a hair under 297 mm so rounding never spills onto an extra blank page */
+    .sheet { height: 296.5mm; margin: 0; box-shadow: none; break-after: page; }
+    .sheet:last-child { break-after: auto; }
+  }
+  /* Zero page margin: the sheets carry their own header and page number, and the browser has
+     no room to add its own date / URL headers even if "Headers and footers" is ticked. */
+  @page { size: A4; margin: 0; }
+</style>
+</head>
+<body>
+<div class="app">
+  <aside class="panel">
+    <div class="topbar">
+      <h1>Quotation Builder</h1>
+      <button class="btn" id="btnReset" title="Clear everything and start a new quotation">New</button>
+      <button class="btn primary" id="btnPdf">Export PDF</button>
+    </div>
+    <div class="form" id="form">
+
+      <section>
+        <h2>1 · Client <small>客户资料</small></h2>
+        <div class="ocr" id="ocrBox">
+          <b>Auto-fill from an image 图片自动填写</b>
+          <span>Drop a name card, email signature or letterhead picture here, paste it with Ctrl+V, or</span>
+          <label class="btn small">Choose image<input type="file" id="ocrFile" accept="image/*" hidden></label>
+          <div id="ocrStatus"></div>
+        </div>
+        <div class="grid">
+          <label class="full">Company name<input type="text" data-path="client.company"></label>
+          <label>PIC name<input type="text" data-path="client.pic"></label>
+          <label>PIC position<input type="text" data-path="client.position"></label>
+          <label>Email<input type="email" data-path="client.email"></label>
+          <label>Tel<input type="text" data-path="client.tel"></label>
+          <label class="full">Address line 1<input type="text" data-path="client.a1"></label>
+          <label class="full">Address line 2<input type="text" data-path="client.a2"></label>
+          <label class="full">Address line 3<input type="text" data-path="client.a3"></label>
+        </div>
+      </section>
+
+      <section>
+        <h2>2 · Quotation <small>报价设置</small></h2>
+        <div class="grid">
+          <label>Quotation date<input type="date" data-path="date"></label>
+          <label>Quotation ref<input type="text" data-path="ref"></label>
+          <label>No. of software users<input type="number" min="0" step="1" data-path="users" data-num></label>
+          <label>Subscription term
+            <select data-path="term" data-num>
+              <option value="12">1 year (12 months)</option>
+              <option value="36">3 years (36 months)</option>
+            </select>
+          </label>
+          <label>Currency
+            <select data-path="currency"><option>RM</option><option>SGD</option></select>
+          </label>
+          <label>SST %<input type="number" min="0" step="0.1" data-path="sstRate" data-num></label>
+          <label class="check full"><input type="checkbox" data-path="sstOn"> Charge SST</label>
+          <label>Project implementation
+            <select data-path="implType">
+              <option value="impl">Standard</option>
+              <option value="implhrdf">Express</option>
+              <option value="none">None</option>
+            </select>
+          </label>
+          <label>Implementation price<input type="number" min="0" step="0.01" data-path="implPrice" data-num></label>
+          <label>Free months (Operation / Strategic module)
+            <select data-path="promoMonths" data-num>
+              <option value="0">No free months</option>
+              <option value="1">Free 1 month</option>
+              <option value="3">Free 3 months</option>
+            </select>
+          </label>
+          <label>Promo valid until<input type="date" data-path="promoUntil"></label>
+          <label class="full">Payment plan (Terms &amp; Conditions, clause 1)
+            <select data-path="payPlan">
+              <option value="advance">100% payment in advance</option>
+              <option value="hrdf">No deposit – 100% HRDF claim</option>
+            </select>
+          </label>
+        </div>
+      </section>
+
+      <section>
+        <h2>3 · Items <small>选择要包含的项目</small></h2>
+        <p class="hint">Start from a package, or add items one by one. Everything stays editable.</p>
+        <div class="chips" id="templates"></div>
+        <div id="items"></div>
+        <label>Add an item
+          <select id="addItem"></select>
+        </label>
+      </section>
+
+    </div>
+  </aside>
+
+  <main class="preview"><div class="paper" id="paper"></div></main>
+</div>
+
+<script src="terms.js"></script>
+<script>
+(function () {
+  'use strict';
+
+  // ---- Company details printed on every quotation (edit here if they change) ----
+  var COMPANY = {
+    name: 'Lightman Consulting Sdn. Bhd.',
+    reg: 'Business Registration No.: 1195725-T',
+    address: ['B-10-06, The Vertical Business Suites, 8, Jalan', 'Kerinchi, Bangsar South, Pantai Dalam, 59200,', 'Kuala Lumpur'],
+    tel: 'TEL: +6016 - 338 - 2200',
+    refPrefix: 'OP-STD-'
+  };
+
+  // ---- Item catalogue (from the Excel sheets). price: {12: 1-year price, 36: 3-year price} ----
+  // mode: monthly = Qty x Price x Months | yearly = Price x Years | once = Qty x Price
+  var HW = '\n\n> INTEGRATED WITH LIGHTMAN CONSULTING CLOUD SOFTWARE';
+  var CATALOG = [
+    { id: 'op', group: 'Software', label: 'HR Operational Module (Attendance, Leave, Payroll, Claim)', users: true, mode: 'monthly', price: { 12: 12, 36: 10 }, renewal: '2',
+      desc: 'HR OPERATIONAL MODULE\n > E - ATTENDANCE\n > E - LEAVE\n > E - PAYROLL\n > E - CLAIM' },
+    { id: 'opx', group: 'Software', label: 'HR Operational Module (Project Costing, Travel Request)', users: true, mode: 'monthly', price: { 12: 6, 36: 6 }, renewal: '2',
+      desc: 'HR OPERATIONAL MODULE\n > E - PROJECT COSTING\n > E - TRAVEL REQUEST' },
+    { id: 'st', group: 'Software', label: 'HR Strategic Module (Learning, Performance)', users: true, mode: 'monthly', price: { 12: 5, 36: 5 }, renewal: '2',
+      desc: 'HR STRATEGIC MODULE\n > E - LEARNING\n > E - PERFORMANCE' },
+    { id: 'rec', group: 'Software', label: 'HR Strategic Module (Recruitment)', qty: 4, mode: 'yearly', price: { 12: 3600, 36: 3500 }, renewal: 'N/A',
+      desc: 'HR STRATEGIC MODULE\n > E - RECRUITMENT' },
+    { id: 'ren2', group: 'Software', label: 'Renewal Year 2', users: true, mode: 'monthly', months: 12, price: { 12: 8, 36: 8 }, renewal: '0', desc: 'RENEWAL YEAR 2' },
+    { id: 'ren3', group: 'Software', label: 'Renewal Year 3', users: true, mode: 'monthly', months: 12, price: { 12: 8, 36: 8 }, renewal: '0', desc: 'RENEWAL YEAR 3' },
+
+    { id: 'impl', group: 'Services', label: 'Project Implementation & Services – Standard (one-time)', qty: 1, mode: 'once', price: { 12: 1500, 36: 1500 }, renewal: 'N/A',
+      desc: 'PROJECT IMPLEMENTATION & SERVICES (ONE TIME FEE)\n\n• Kick-Off Meeting\n• Business Requirement Studies\n• System Configuration\n• Online Key User Training\n• On-Going Customer Support' },
+    { id: 'implhrdf', group: 'Services', label: 'Project Implementation & Services – Express (one-time)', qty: 1, mode: 'once', price: { 12: 800, 36: 800 }, renewal: 'N/A',
+      desc: 'PROJECT IMPLEMENTATION & SERVICES (ONE TIME FEE)\n\n• 2x Online Training Sessions\n• Access to Training Videos\n• Complimentary 4 hours of 1-to-1 Online Support' },
+    { id: 'retrain', group: 'Services', label: 'Online retraining (per day)', qty: 3, unit: 'days', mode: 'once', price: { 12: 1200, 36: 1200 }, renewal: 'N/A',
+      desc: 'ONLINE RETRAINING – FULL OPERATION MODULE\n\nThe training itself is 2 days, but if arranged with HRDF claim, the total duration will be 3 days' },
+    { id: 'onsite', group: 'Services', label: 'Onsite installation, testing & commissioning', qty: 1, mode: 'once', price: { 12: 800, 36: 800 }, renewal: 'N/A',
+      desc: 'ONSITE INSTALLATION, TESTING &\nCOMMISSIONING\nOUTSIDE KL AND SELANGOR BUT WITHIN\nPENINSULAR MALAYSIA\n\n> POWER POINT TO BE SUPPLIED BY CLIENT\n> NETWORK POINT TO BE SUPPLIED BY CLIENT' },
+    { id: 'zkremote', group: 'Services', label: 'Remote installation of ZKBioTime software', qty: 1, unit: 'unit', mode: 'once', price: { 12: 1500, 36: 1500 }, renewal: 'N/A',
+      desc: "REMOTE INSTALLATION OF ZKBIOTIME SOFTWARE\n\n> FOR CLIENT'S 6 WINDOWS PCs/SERVERS" },
+    { id: 'integ', group: 'Services', label: 'Time attendance integration (third-party device)', qty: 1, mode: 'once', price: { 12: 3000, 36: 3000 }, renewal: 'N/A',
+      desc: 'TIME ATTENDANCE INTEGRATION COST\n> INTEGRATION WITH THIRD PARTY\nDEVICE VIA DROP BOX FOLDER\n\nREFER\nHTTPS://LIGHTMAN.COM.MY/HARDWARE-POLICY/ FOR MORE DETAIL ABOUT THE\nCOMPATIBILITY' },
+
+    { id: 'mb40', group: 'Devices', label: 'MB40-VL – Face recognition & fingerprint reader', qty: 1, unit: 'unit', mode: 'once', price: { 12: 2800, 36: 2800 }, renewal: '',
+      desc: 'MB40-VL\nFACE RECOGNITION & FINGERPRINT READER' + HW + '\n> FINGERPRINT CAPACITY (3,000)\n> FACE CAPACITY (3,000)\n> CARD RFID CAPACITY (10,000)\n> TRANSACTION STORAGE (100,000)\n> SUPPORT WI-FI & TCP/IP (LAN)\n> WARRANTY 1 YEAR\n> ZKBIOTIME SOFTWARE LICENSING\nINTEGRATION WITH WORKSY AND ZKTECO\nTIME CLOCK DEVICES' },
+    { id: 'f22', group: 'Devices', label: 'F22 – Fingerprint reader', qty: 1, unit: 'unit', mode: 'once', price: { 12: 1800, 36: 1800 }, renewal: '',
+      desc: 'F22\nFINGERPRINT READER' + HW + '\n> FINGERPRINT CAPACITY (3,000)\n> CARD RFID CAPACITY (5,000)\n> TRANSACTION STORAGE (30,000)\n> SUPPORT WI-FI & TCP/IP (LAN)\n> WARRANTY 1 YEAR' },
+    { id: 'fr1200', group: 'Devices', label: 'FR1200 – Fingerprint reader (enter price)', qty: 1, unit: 'unit', mode: 'once', price: { 12: 0, 36: 0 }, renewal: '', desc: 'FR1200\nFINGERPRINT READER' },
+    { id: 'door', group: 'Devices', label: 'Door access accessories (enter price)', qty: 1, unit: 'unit', mode: 'once', price: { 12: 0, 36: 0 }, renewal: '', desc: 'DOOR ACCESS ACCESSORIES' },
+
+    { id: 'custom', group: 'Other', label: 'Custom item (blank)', qty: 1, mode: 'once', price: { 12: 0, 36: 0 }, renewal: '', desc: '' }
+  ];
+  var CAT = {};
+  CATALOG.forEach(function (c) { CAT[c.id] = c; });
+
+  // wording printed after "Payment Plan:" in clause 1 of the Terms & Conditions
+  var PAY_PLANS = {
+    advance: 'The Customer shall make 100% payment in advance.',
+    hrdf: 'No deposit is required from the Customer. 100% of the payment shall be claimed through HRDF.'
+  };
+  var PROMO_CATS = ['op', 'opx', 'st', 'rec'];   // items that get the free-months line
+  var IMPL_CATS = ['impl', 'implhrdf'];
+  // Packages = the sheets of the Excel file
+  var TEMPLATES = [
+    { label: '1Y Operation', term: 12, items: [['op'], ['impl']] },
+    { label: '3Y Operation', term: 36, promo: 3, items: [['op'], ['impl']] },
+    { label: '1Y Operation + Strategic', term: 12, items: [['op'], ['st'], ['rec'], ['impl']] },
+    { label: '3Y Operation + Strategic', term: 36, promo: 3, items: [['op'], ['st'], ['rec'], ['impl']] },
+    { label: 'BP 3Y Operation', term: 12, items: [['op', { price: 10 }], ['ren2'], ['ren3'], ['impl']] },
+    { label: 'Retraining', term: 12, items: [['retrain']] }
+  ];
+
+  var STORE_KEY = 'quotation-builder-v2';
+  var DEFAULT_SIG = 'assets/signature.jpeg';
+  var uid = 1;
+
+  function today() {
+    var d = new Date();
+    return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate());
+  }
+  function pad(n) { return (n < 10 ? '0' : '') + n; }
+  function autoRef(date) {
+    var p = (date || '').split('-');
+    return p.length === 3 ? COMPANY.refPrefix + p[2] + p[1] + p[0].slice(2) : COMPANY.refPrefix;
+  }
+  function fmtDate(date) {
+    var p = (date || '').split('-');
+    return p.length === 3 ? p[2] + '/' + p[1] + '/' + p[0] : '';
+  }
+
+  function freshState() {
+    var s = {
+      by: { name: 'Pan Yong Xie', position: 'Business Development Executive' },
+      client: { company: '', pic: '', position: '', email: '', tel: '', a1: '', a2: '', a3: '' },
+      date: today(), ref: '', refAuto: true,
+      users: 10, term: 12, currency: 'RM', sstOn: true, sstRate: 8,
+      payPlan: 'advance', promoMonths: 0, promoUntil: '', implType: 'impl', implPrice: 1500,
+      showTerms: true, showSig: true, sig: '',
+      items: [],
+      terms: (window.QUOTE_TERMS || []).map(function (t) { return { on: true, text: t }; }),
+      accept: window.QUOTE_ACCEPT || ''
+    };
+    s.ref = autoRef(s.date);
+    return s;
+  }
+
+  var state = load() || withTemplate(freshState(), TEMPLATES[0]);
+
+  function load() {
+    try {
+      var s = JSON.parse(localStorage.getItem(STORE_KEY));
+      if (!s || !s.items || !s.client) return null;
+      var base = freshState();
+      Object.keys(base).forEach(function (k) { if (s[k] === undefined) s[k] = base[k]; });
+      s.items.forEach(function (it) { it.id = uid++; });
+      // fixed parts of the quotation: never taken from saved data
+      ['by', 'terms', 'accept', 'showTerms', 'showSig', 'sig'].forEach(function (k) { s[k] = base[k]; });
+      if (s.currency !== 'RM' && s.currency !== 'SGD') s.currency = 'RM';
+      if (!PAY_PLANS[s.payPlan]) s.payPlan = 'advance';
+      // promo wording is now generated from the "Free months" setting, not typed into the description
+      s.items.forEach(function (it) { it.desc = String(it.desc || '').replace(/\s*\*Promo[\s\S]*$/, ''); });
+      return s;
+    } catch (e) { return null; }
+  }
+  function save() {
+    try { localStorage.setItem(STORE_KEY, JSON.stringify(state)); } catch (e) { /* storage unavailable or full */ }
+  }
+
+  function makeItem(catId, s, over) {
+    var c = CAT[catId], o = over || {};
+    return {
+      id: uid++, cat: catId,
+      desc: c.desc + (o.descAdd || ''),
+      qty: c.users ? s.users : (c.qty || 1),
+      unit: c.unit || (c.users ? 'users' : ''),
+      price: o.price !== undefined ? o.price : c.price[s.term],
+      renewal: c.renewal,
+      mode: c.mode,
+      months: c.months || s.term
+    };
+  }
+  function withTemplate(s, t) {
+    s.term = t.term;
+    s.promoMonths = t.promo || 0;
+    if (s.promoMonths && !s.promoUntil) s.promoUntil = endOfMonth(s.date);
+    s.items = t.items.map(function (x) { return makeItem(x[0], s, x[1]); });
+    return s;
+  }
+  function endOfMonth(date) {
+    var p = (date || today()).split('-');
+    var d = new Date(+p[0], +p[1], 0);
+    return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate());
+  }
+  function fmtLong(date) {
+    var p = (date || '').split('-');
+    return p.length === 3 ? +p[2] + ' ' + ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'][+p[1] - 1] + ' ' + p[0] : '';
+  }
+  // the free-months lines printed under Operation / Strategic module descriptions
+  function promoText(it) {
+    var free = num(state.promoMonths);
+    if (!free || PROMO_CATS.indexOf(it.cat) < 0 || it.mode === 'once') return '';
+    var gift = 'Free Additional ' + free + (free === 1 ? ' month' : ' months') + ', total ' + (num(it.months) + free) + ' months';
+    return '\n\n' + (state.promoUntil ? ' *Promo only valid until ' + fmtLong(state.promoUntil) + '.\n' + gift : '*' + gift);
+  }
+
+  function num(v) { var n = parseFloat(v); return isFinite(n) ? n : 0; }
+  function itemTotal(it) {
+    if (it.mode === 'monthly') return num(it.qty) * num(it.price) * num(it.months);
+    if (it.mode === 'yearly') return num(it.price) * num(it.months) / 12;
+    return num(it.qty) * num(it.price);
+  }
+  function money(n) {
+    return n.toLocaleString('en-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  }
+  function totals() {
+    var sub = state.items.reduce(function (a, it) { return a + itemTotal(it); }, 0);
+    var sst = state.sstOn ? Math.round(sub * num(state.sstRate)) / 100 : 0;
+    return { sub: sub, sst: sst, total: sub + sst };
+  }
+  function esc(s) {
+    return String(s == null ? '' : s).replace(/[&<>"']/g, function (ch) {
+      return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch];
+    });
+  }
+  function get(path) { return path.split('.').reduce(function (o, k) { return o[k]; }, state); }
+  function set(path, v) {
+    var ks = path.split('.'), o = state;
+    for (var i = 0; i < ks.length - 1; i++) o = o[ks[i]];
+    o[ks[ks.length - 1]] = v;
+  }
+
+  // ------------------------------------------------------------------ form
+  var $ = function (id) { return document.getElementById(id); };
+
+  function fillFields() {
+    document.querySelectorAll('[data-path]').forEach(function (el) {
+      var v = get(el.dataset.path);
+      if (el.type === 'checkbox') el.checked = !!v; else el.value = v;
+    });
+  }
+
+  function renderItems() {
+    // keep the "Project implementation" choice in step with the item list
+    var impl = state.items.filter(function (it) { return IMPL_CATS.indexOf(it.cat) >= 0; })[0];
+    state.implType = impl ? impl.cat : 'none';
+    var implSel = document.querySelector('[data-path="implType"]');
+    if (implSel) implSel.value = state.implType;
+    $('items').innerHTML = state.items.map(function (it, i) {
+      var sub = it.mode !== 'once';
+      return '<div class="item" data-i="' + i + '">' +
+        '<div class="item-head"><span class="no">' + (i + 1) + '</span>' +
+        '<select data-k="mode" title="How the total is calculated">' +
+        opt('monthly', 'Qty × Price × Months', it.mode) + opt('yearly', 'Price × Years', it.mode) + opt('once', 'Qty × Price (one-time)', it.mode) +
+        '</select>' +
+        '<button class="btn small" data-act="up" title="Move up">↑</button>' +
+        '<button class="btn small" data-act="down" title="Move down">↓</button>' +
+        '<button class="btn small danger" data-act="del" title="Remove">✕</button></div>' +
+        '<textarea data-k="desc" rows="' + Math.min(8, Math.max(2, it.desc.split('\n').length)) + '" style="width:100%" placeholder="Description (first line is shown in bold)">' + esc(it.desc) + '</textarea>' +
+        '<div class="item-row">' +
+        '<label>Qty<input type="number" min="0" step="1" data-k="qty" data-num value="' + esc(it.qty) + '"></label>' +
+        '<label>Unit<input type="text" data-k="unit" placeholder="unit, days…" value="' + esc(it.unit) + '"></label>' +
+        '<label>Price<input type="number" min="0" step="0.01" data-k="price" data-num value="' + esc(it.price) + '"></label>' +
+        '<label>Months<input type="number" min="1" step="1" data-k="months" data-num value="' + esc(it.months) + '"' + (sub ? '' : ' disabled') + '></label>' +
+        '</div>' +
+        '<div class="item-foot"><span class="calc"></span><b class="tot"></b></div></div>';
+    }).join('') || '<p class="hint">No items yet. Pick a package above or add an item below.</p>';
+  }
+  function opt(v, label, cur) { return '<option value="' + v + '"' + (v === cur ? ' selected' : '') + '>' + label + '</option>'; }
+
+  function buildStatic() {
+    $('templates').innerHTML = TEMPLATES.map(function (t, i) {
+      return '<button class="chip" data-tpl="' + i + '">' + esc(t.label) + '</button>';
+    }).join('');
+    var groups = {}, order = [];
+    CATALOG.forEach(function (c) { if (!groups[c.group]) { groups[c.group] = []; order.push(c.group); } groups[c.group].push(c); });
+    $('addItem').innerHTML = '<option value="">— choose an item to add —</option>' + order.map(function (g) {
+      return '<optgroup label="' + g + '">' + groups[g].map(function (c) { return '<option value="' + c.id + '">' + esc(c.label) + '</option>'; }).join('') + '</optgroup>';
+    }).join('');
+  }
+
+  // --------------------------------------------------------------- preview
+  function termText(m) {
+    m = num(m);
+    if (m === 12) return ' /year';
+    return m % 12 === 0 ? ' /for ' + (m / 12) + ' years' : ' /for ' + m + ' months';
+  }
+  function priceText(it) {
+    var p = state.currency + money(num(it.price));
+    return it.mode === 'monthly' ? p + ' /month' : it.mode === 'yearly' ? p + ' /year' : p;
+  }
+  function totalText(it) {
+    return state.currency + money(itemTotal(it)) + (it.mode === 'once' ? '' : termText(it.months));
+  }
+  // first line bold; lines starting with * (promo notes) bold
+  function descHtml(desc) {
+    return desc.replace(/^\s*\n/, '').replace(/\s+$/, '').split('\n').map(function (l, i) {
+      return i === 0 || /^\s*\*/.test(l) ? '<b>' + esc(l) + '</b>' : esc(l);
+    }).join('\n');
+  }
+  // "Title: text" -> bold title
+  function boldLabel(line) {
+    var k = line.indexOf(':');
+    return k > 0 ? '<b>' + esc(line.slice(0, k + 1)) + '</b>' + esc(line.slice(k + 1)) : esc(line);
+  }
+
+  function renderPaper() {
+    var s = state, c = s.client, t = totals(), cur = s.currency;
+    var rows = s.items.map(function (it, i) {
+      return '<tr><td>' + (i + 1) + '</td><td class="desc">' + descHtml(it.desc.replace(/\s+$/, '') + promoText(it)) + '</td>' +
+        '<td>' + esc(it.qty + (it.unit ? ' ' + it.unit : '')) + '</td>' +
+        '<td>' + esc(priceText(it)) + '</td><td>' + esc(totalText(it)) + '</td></tr>';
+    });
+    var sums = [sumRow('Subtotal', t.sub)].concat(
+      s.sstOn ? [sumRow(esc(num(s.sstRate)) + '% SST', t.sst)] : [],
+      [sumRow('Total', t.total, 'total')]);
+
+    var sign = '<div class="d-sign"><div><b>' + esc(COMPANY.name) + '</b>' +
+      '<div class="box">' + (s.showSig ? '<img src="' + esc(s.sig || DEFAULT_SIG) + '" alt="">' : '') + '</div>' +
+      esc(s.by.name) + '<b>' + esc(s.by.position) + '</b></div><div></div>' +
+      '<div class="right"><b>Accepted &amp; Confirmed For:</b><div class="box"></div>' +
+      '<div class="date">Date: _______________________</div><b>' + esc(c.company) + '</b></div></div>';
+
+    var n = 0;
+    var clauses = s.terms.filter(function (x) { return x.on && x.text.trim(); }).map(function (x) {
+      n++;
+      var lines = (n === 1 ? 'Payment Plan: ' + (PAY_PLANS[s.payPlan] || PAY_PLANS.advance) : x.text.trim()).split('\n');
+      return '<tr class="cl"><td class="n">' + n + ')</td><td>' + boldLabel(lines[0]) +
+        lines.slice(1).map(function (l) { return '<div class="sub">' + boldLabel(l) + '</div>'; }).join('') + '</td></tr>';
+    });
+    var withTerms = s.showTerms && clauses.length;
+
+    var top1 =
+      '<div class="d-co">' + esc(COMPANY.reg) + '<br>' + COMPANY.address.map(esc).join('<br>') + '<br>' + esc(COMPANY.tel) + '</div>' +
+      '<div class="d-for">For  ' + esc(c.company) + '</div>' +
+      '<div class="d-meta"><table>' +
+      meta('PIC Name:', c.pic, 'Quotation Ref No.:', s.ref) +
+      meta('Position:', c.position, 'Quotation Date:', fmtDate(s.date)) +
+      meta('Address:', c.a1, 'PIC Phone:', c.tel) +
+      meta('', c.a2, 'PIC Email:', c.email) +
+      meta('', c.a3, '', '') +
+      '</table></div>' +
+      '<div class="d-title">OFFICIAL QUOTATION</div>' +
+      '<div class="d-dear">Dear Client,<br>We thank you for your interest in our products and we are pleased to quote you as follows:</div>';
+    var itemsTable = '<table class="d-items"><colgroup><col style="width:8.5mm"><col style="width:58mm"><col style="width:15mm"><col style="width:28.6mm"><col></colgroup>' +
+      '<thead><tr><th>Item</th><th>Description</th><th>Qty</th><th>Price</th><th>Total Price</th></tr></thead><tbody></tbody></table>';
+    var tcTable = '<table class="d-tc"><colgroup><col style="width:9mm"><col></colgroup><thead><tr><td colspan="2"><div class="tc-head"><b>' +
+      esc(c.company) + '</b><span>' + esc(s.ref) + '</span></div></td></tr></thead><tbody></tbody></table>';
+    var tcEnd = '<tr class="d-end"><td colspan="2"><div class="d-accept">' + esc(s.accept) + '</div>' + sign + '</td></tr>';
+
+    // ---- lay the content out onto fixed A4 sheets, starting a new sheet only when the next piece does not fit
+    var paper = $('paper');
+    paper.innerHTML = '';
+    var body;
+    function sheet(html) {
+      var sh = node('<div class="sheet"><div class="ph"><img src="' + LOGO + '" alt="' + esc(COMPANY.name) + '"><span>' +
+        esc(COMPANY.name) + '</span></div><div class="sb"></div><div class="pf"></div></div>');
+      paper.appendChild(sh);
+      body = sh.querySelector('.sb');
+      if (html) body.innerHTML = html;
+      return body;
+    }
+    function fits() { return body.scrollHeight <= body.clientHeight + 1; }
+    // add rows to the last table on the sheet; returns false (and takes them back out) if they overflow
+    function put(rowsHtml) {
+      var tb = body.querySelectorAll('tbody');
+      tb = tb[tb.length - 1];
+      var added = rowsHtml.map(function (h) { return tb.appendChild(node(h)); });
+      if (fits()) return true;
+      added.forEach(function (r) { tb.removeChild(r); });
+      return false;
+    }
+
+    sheet(top1 + itemsTable);
+    rows.forEach(function (r) { if (!put([r])) { sheet(itemsTable); put([r]); } });
+    if (!put(sums)) {
+      // keep the totals with at least the last item row
+      var tbs = body.querySelectorAll('tbody'), tb = tbs[tbs.length - 1];
+      var last = tb.rows.length > 1 ? tb.rows[tb.rows.length - 1] : null;
+      if (last) tb.removeChild(last);
+      sheet(itemsTable);
+      if (last) put([last.outerHTML]);
+      put(sums);
+    }
+    if (!withTerms) {
+      var alone = node(sign.replace('class="d-sign"', 'class="d-sign alone"'));
+      body.appendChild(alone);
+      if (!fits()) { body.removeChild(alone); sheet().appendChild(alone); }
+    } else {
+      // Same split as the original quotation: clauses 1-16 on the first T&C page, 17-24 + signatures on the next
+      var TC_SPLIT = 16;
+      sheet(tcTable);
+      put(['<tr><td colspan="2" class="tc-band">TERMS &amp; CONDITIONS</td></tr>']);
+      clauses.forEach(function (cl, i) {
+        if (i === TC_SPLIT) sheet(tcTable);
+        if (!put([cl])) { sheet(tcTable); put([cl]); }
+      });
+      if (!put([tcEnd])) { sheet(tcTable); put([tcEnd]); }
+    }
+    paper.querySelectorAll('.pf').forEach(function (f, i) { f.textContent = i + 1; });
+
+    // "Implementation price" box mirrors the implementation row (unless it is being typed in)
+    var implItem = s.items.filter(function (it) { return IMPL_CATS.indexOf(it.cat) >= 0; })[0];
+    var implBox = document.querySelector('[data-path="implPrice"]');
+    s.implPrice = implItem ? num(implItem.price) : 0;
+    implBox.disabled = !implItem;
+    if (document.activeElement !== implBox) implBox.value = implItem ? s.implPrice : '';
+
+    // per-item totals in the form
+    document.querySelectorAll('#items .item').forEach(function (el) {
+      var it = s.items[+el.dataset.i];
+      if (!it) return;
+      var calc = it.mode === 'monthly' ? it.qty + ' × ' + money(num(it.price)) + ' × ' + it.months + ' months'
+        : it.mode === 'yearly' ? money(num(it.price)) + ' × ' + (num(it.months) / 12) + ' year(s)'
+        : it.qty + ' × ' + money(num(it.price));
+      el.querySelector('.calc').textContent = calc;
+      el.querySelector('.tot').textContent = cur + money(itemTotal(it));
+    });
+    save();
+  }
+  var LOGO = 'assets/logo.svg';
+  function node(html) {
+    var t = document.createElement('template');
+    t.innerHTML = html.trim();
+    return t.content.firstChild;
+  }
+  function meta(l1, v1, l2, v2) {
+    return '<tr><td class="l1">' + l1 + '</td><td class="v1">' + esc(v1) + '</td><td class="l2">' + l2 + '</td><td>' + esc(v2) + '</td></tr>';
+  }
+  function sumRow(label, val, cls) {
+    return '<tr class="sum ' + (cls || '') + '"><td colspan="3" class="gap"></td><td class="lbl">' + label + '</td><td>' + esc(state.currency) + money(val) + '</td></tr>';
+  }
+
+  // ---------------------------------------------------------------- events
+  function onField(el) {
+    var path = el.dataset.path, old = get(path);
+    var v = el.type === 'checkbox' ? el.checked : (el.hasAttribute('data-num') ? num(el.value) : el.value);
+    set(path, v);
+    if (path === 'ref') state.refAuto = !v || v === autoRef(state.date);
+    if (path === 'date' && state.refAuto) { state.ref = autoRef(v); document.querySelector('[data-path="ref"]').value = state.ref; }
+    if (path === 'users') {
+      state.items.forEach(function (it) { if (CAT[it.cat] && CAT[it.cat].users) it.qty = v; });
+      renderItems();
+    }
+    if (path === 'implType') {
+      var at = -1;
+      state.items.forEach(function (it, i) { if (at < 0 && IMPL_CATS.indexOf(it.cat) >= 0) at = i; });
+      if (v === 'none') { if (at >= 0) state.items.splice(at, 1); }
+      else if (at >= 0) state.items[at] = makeItem(v, state);
+      else state.items.push(makeItem(v, state));
+      renderItems();
+    }
+    if (path === 'implPrice') {
+      state.items.some(function (it) {
+        if (IMPL_CATS.indexOf(it.cat) < 0) return false;
+        it.price = v;
+        return true;
+      });
+      renderItems();
+    }
+    if (path === 'promoMonths' && v && !state.promoUntil) {
+      state.promoUntil = endOfMonth(state.date);
+      document.querySelector('[data-path="promoUntil"]').value = state.promoUntil;
+    }
+    if (path === 'term') {
+      state.items.forEach(function (it) {
+        var c = CAT[it.cat];
+        if (it.mode === 'once' || (c && c.months)) return;
+        if (num(it.months) === old) it.months = v;
+        if (c && num(it.price) === c.price[old]) it.price = c.price[v];
+      });
+      renderItems();
+    }
+  }
+
+  $('form').addEventListener('input', function (e) {
+    var el = e.target;
+    if (el.dataset.path) onField(el);
+    else if (el.dataset.k) {
+      var it = state.items[+el.closest('.item').dataset.i];
+      it[el.dataset.k] = el.hasAttribute('data-num') ? num(el.value) : el.value;
+      if (el.dataset.k === 'mode') { renderItems(); }
+    } else if (el.dataset.tk) {
+      var d = el.closest('.clause'), t = state.terms[+d.dataset.t];
+      if (el.dataset.tk === 'on') { t.on = el.checked; d.classList.toggle('off', !t.on); }
+      else t.text = el.value;
+    } else return;
+    renderPaper();
+  });
+
+  $('form').addEventListener('click', function (e) {
+    var b = e.target.closest('button');
+    if (!b) return;
+    if (b.dataset.tpl !== undefined) {
+      if (state.items.length && !confirm('Replace the current items with the "' + TEMPLATES[+b.dataset.tpl].label + '" package?')) return;
+      withTemplate(state, TEMPLATES[+b.dataset.tpl]);
+      fillFields();
+    } else if (b.dataset.act) {
+      var i = +b.closest('.item').dataset.i, a = state.items;
+      if (b.dataset.act === 'del') a.splice(i, 1);
+      if (b.dataset.act === 'up' && i > 0) a.splice(i - 1, 0, a.splice(i, 1)[0]);
+      if (b.dataset.act === 'down' && i < a.length - 1) a.splice(i + 1, 0, a.splice(i, 1)[0]);
+    } else return;
+    renderItems();
+    renderPaper();
+  });
+
+  $('addItem').addEventListener('change', function () {
+    if (!this.value) return;
+    state.items.push(makeItem(this.value, state));
+    this.value = '';
+    renderItems();
+    renderPaper();
+    var last = $('items').lastElementChild;
+    if (last) last.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+  });
+
+  // ------------------------------------------------- auto-fill from image
+  // Turns the text read from a picture into client fields. Only returns what it is fairly sure about.
+  /*PARSE-START*/
+  function parseClient(text) {
+    var lines = text.split(/\r?\n/).map(function (l) { return l.replace(/[|]/g, ' ').replace(/\s+/g, ' ').trim(); })
+      .filter(function (l) { return l.length > 1; });
+    var out = {}, used = {};
+    var emailRe = /[A-Za-z0-9._%+-]+\s?@\s?[A-Za-z0-9-]+(?:\.[A-Za-z0-9-]+)+/;
+    var telRe = /(?<!\d)\+?6?0\d{1,2}[\s-]?\d{3,4}[\s-]?\d{3,4}(?!\d)/g;
+    var coRe = /\b(sdn\.?\s*bhd\.?|berhad|bhd\.?|plt|enterprise|pte\.?\s*ltd\.?|ltd\.?|limited|inc\.?|corporation|holdings)(?=[\s,.)]|$)/i;
+    var posRe = /\b(manager|director|executive|officer|head of|assistant|supervisor|engineer|ceo|cfo|coo|cto|founder|president|consultant|administrator|accountant|human resources?|specialist|partner|owner|coordinator|analyst|secretary|clerk|principal)\b/i;
+    var addrRe = /\b(\d{5}|jalan|jln|lorong|taman|persiaran|lebuh|lot|level|floor|tingkat|block|blok|kawasan|bandar|seksyen|section|street|road|plaza|menara|wisma|tower|suite|industri\w*|selangor|kuala lumpur|johor|penang|pulau pinang|perak|melaka|sabah|sarawak|kedah|pahang|negeri sembilan|kelantan|terengganu|putrajaya)\b/i;
+    var labels = [
+      ['company', /^(?:company(?: name)?|syarikat|organi[sz]ation)\s*[:\-]\s*(.+)/i],
+      ['pic', /^(?:name|nama|pic(?: name)?|contact person|attn|attention)\s*[:\-]\s*(.+)/i],
+      ['position', /^(?:position|designation|job title|title|jawatan)\s*[:\-]\s*(.+)/i]
+    ];
+
+    lines.forEach(function (l, i) {
+      var m = l.match(emailRe);
+      if (m && !out.email) { out.email = m[0].replace(/\s/g, ''); used[i] = 1; return; }
+      if (/\b(www\.|https?:)/i.test(l)) { used[i] = 1; return; }
+      labels.forEach(function (lb) {
+        var x = l.match(lb[1]);
+        if (x && !out[lb[0]]) { out[lb[0]] = x[1].trim(); used[i] = 1; }
+      });
+    });
+
+    // phone: a mobile number wins over an office line; fax numbers are ignored
+    var tels = [];
+    lines.forEach(function (l, i) {
+      var body = l.replace(emailRe, ' ').replace(/\bfax\b[^A-Za-z]*/i, ' ');
+      (body.match(telRe) || []).forEach(function (t) {
+        var d = t.replace(/\D/g, '');
+        if (d.length >= 9 && d.length <= 12) tels.push({ t: t.trim(), i: i });
+      });
+    });
+    if (tels.length) {
+      var pick = tels.filter(function (x) { return /^\+?6?01/.test(x.t.replace(/[\s-]/g, '')); })[0] || tels[0];
+      out.tel = pick.t;
+      tels.forEach(function (x) { if (!addrRe.test(lines[x.i].replace(telRe, ''))) used[x.i] = 1; });
+    }
+
+    if (!out.company) lines.some(function (l, i) {
+      if (used[i] || !coRe.test(l)) return false;
+      out.company = l.replace(/\s*[\(\[]?\b(?:co\.?\s*(?:reg\.?)?\s*no\.?\s*:?\s*)?\d{5,}[-\s]?[A-Z]?[\)\]]?\s*$/i, '').trim();
+      used[i] = 1;
+      return true;
+    });
+
+    var posAt = -1;
+    if (!out.position) lines.some(function (l, i) {
+      if (used[i] || !posRe.test(l) || l.length > 60 || /\d/.test(l)) return false;
+      out.position = l; used[i] = 1; posAt = i;
+      return true;
+    });
+
+    function nameLike(i) {
+      var l = lines[i];
+      if (l === undefined || used[i]) return false;
+      var w = l.split(' ').length;
+      return /^[A-Za-z][A-Za-z .,'@\/-]{2,40}$/.test(l) && w >= 2 && w <= 5 && !addrRe.test(l) && !posRe.test(l) && !coRe.test(l);
+    }
+    if (!out.pic) {
+      var at = nameLike(posAt - 1) ? posAt - 1 : -1;
+      if (at < 0) for (var i = 0; i < lines.length; i++) if (nameLike(i)) { at = i; break; }
+      if (at >= 0) { out.pic = lines[at]; used[at] = 1; }
+    }
+
+    // address: every address-looking line plus anything sandwiched between them
+    var first = -1, last = -1;
+    lines.forEach(function (l, i) { if (!used[i] && addrRe.test(l)) { if (first < 0) first = i; last = i; } });
+    if (first >= 0) {
+      var parts = [];
+      for (var j = first; j <= last; j++) if (!used[j]) parts.push(lines[j]);
+      var addr = parts.join(', ').replace(/^(?:address|alamat)\s*[:\-]?\s*/i, '').replace(telRe, '')
+        .replace(/\s*,[\s,]*/g, ', ').replace(/[,\s]+$/, '');
+      var bits = addr.split(', '), rows = ['', '', ''], r = 0;
+      var target = Math.max(26, Math.ceil(addr.length / 3));
+      bits.forEach(function (b) {
+        if (rows[r] && r < 2 && (rows[r] + ', ' + b).length > target) r++;
+        rows[r] += (rows[r] ? ', ' : '') + b;
+      });
+      rows = rows.filter(Boolean);
+      rows.forEach(function (x, k) { out['a' + (k + 1)] = x + (k < rows.length - 1 ? ',' : ''); });
+    }
+    return out;
+  }
+  /*PARSE-END*/
+
+  var OCR_LIB = 'https://cdn.jsdelivr.net/npm/tesseract.js@5.1.1/dist/tesseract.min.js';
+  var FIELD_NAMES = { company: 'Company', pic: 'PIC name', position: 'Position', email: 'Email', tel: 'Tel', a1: 'Address' };
+  function ocrStatus(msg) { $('ocrStatus').textContent = msg; }
+  function loadOcr() {
+    return new Promise(function (ok, fail) {
+      if (window.Tesseract) return ok();
+      var s = document.createElement('script');
+      s.src = OCR_LIB;
+      s.onload = function () { ok(); };
+      s.onerror = function () { s.remove(); fail(new Error('load')); };
+      document.head.appendChild(s);
+    });
+  }
+  function readImage(file) {
+    if (!file || !/^image\//.test(file.type)) { ocrStatus('That is not an image file.'); return; }
+    ocrStatus('Reading the image…');
+    loadOcr().then(function () {
+      return window.Tesseract.recognize(file, 'eng', {
+        logger: function (m) { if (m.status === 'recognizing text') ocrStatus('Reading the image… ' + Math.round(m.progress * 100) + '%'); }
+      });
+    }).then(function (res) {
+      var found = parseClient(res.data.text || '');
+      var keys = Object.keys(found);
+      if (!keys.length) { ocrStatus('No client details could be read from this image. Try a sharper or more tightly cropped picture.'); return; }
+      if (found.a1) { state.client.a1 = state.client.a2 = state.client.a3 = ''; }
+      keys.forEach(function (k) { state.client[k] = found[k]; });
+      fillFields();
+      renderPaper();
+      var missing = Object.keys(FIELD_NAMES).filter(function (k) { return !found[k]; }).map(function (k) { return FIELD_NAMES[k]; });
+      ocrStatus('Filled in: ' + keys.filter(function (k) { return FIELD_NAMES[k]; }).map(function (k) { return FIELD_NAMES[k]; }).join(', ') + '.' +
+        (missing.length ? '\nNot found: ' + missing.join(', ') + '.' : '') + '\nPlease check every field before exporting.');
+    }).catch(function () {
+      ocrStatus('The image could not be read. This feature needs an internet connection the first time it is used.');
+    });
+  }
+  $('ocrFile').addEventListener('change', function () { readImage(this.files[0]); this.value = ''; });
+  ['dragenter', 'dragover'].forEach(function (ev) {
+    $('ocrBox').addEventListener(ev, function (e) { e.preventDefault(); this.classList.add('over'); });
+  });
+  ['dragleave', 'drop'].forEach(function (ev) {
+    $('ocrBox').addEventListener(ev, function (e) { e.preventDefault(); this.classList.remove('over'); });
+  });
+  $('ocrBox').addEventListener('drop', function (e) { readImage(e.dataTransfer.files[0]); });
+  document.addEventListener('paste', function (e) {
+    var items = (e.clipboardData && e.clipboardData.items) || [];
+    for (var i = 0; i < items.length; i++) {
+      if (items[i].kind === 'file' && /^image\//.test(items[i].type)) { e.preventDefault(); readImage(items[i].getAsFile()); return; }
+    }
+  });
+
+  $('btnReset').addEventListener('click', function () {
+    if (!confirm('Start a new quotation? The client details and items will be cleared.')) return;
+    state = withTemplate(freshState(), TEMPLATES[0]);
+    fillFields(); renderItems(); renderPaper();
+  });
+
+  $('btnPdf').addEventListener('click', function () {
+    var old = document.title;
+    // the browser uses the page title as the suggested PDF file name
+    document.title = ((state.term === 36 ? '3-year Promotion Worksy ' : '1-year Worksy Quotation ') + (state.client.company || state.ref)).replace(/[\\/:*?"<>|]/g, ' ');
+    window.print();
+    setTimeout(function () { document.title = old; }, 1000);
+  });
+
+  buildStatic();
+  fillFields();
+  renderItems();
+  renderPaper();
+})();
+</script>
+</body>
+</html>
