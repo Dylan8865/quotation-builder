@@ -4,6 +4,8 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Quotation Builder</title>
+<!-- Carlito has the same letter widths as Calibri; it is used on devices (Mac, phones) that do not have Calibri -->
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Carlito:wght@400;700&display=swap">
 <style>
   :root {
     --navy: #1f2a5c;
@@ -89,10 +91,11 @@
   .d-for { background: #DDEBF7; font-weight: 700; font-size: 11pt; height: 5.3mm; line-height: 5.3mm; padding-left: 1.6mm; white-space: pre; overflow: hidden; }
   .d-meta { background: #F2F2F2; padding: 2.2mm 0 3.2mm; }
   .d-meta table { border-collapse: collapse; width: 100%; table-layout: fixed; }
-  .d-meta td { padding: 0; height: 4.25mm; line-height: 4.25mm; vertical-align: top; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .d-meta td.l1 { width: 27.5mm; padding-left: 9mm; font-weight: 700; overflow: visible; }
-  .d-meta td.v1 { width: 49mm; }
-  .d-meta td.l2 { width: 35mm; text-align: right; font-weight: 700; padding-right: 2mm; overflow: visible; }
+  /* values wrap onto a second line when they are long; nothing is ever cut off */
+  .d-meta td { padding: 0; height: 4.25mm; line-height: 4.25mm; vertical-align: top; overflow-wrap: anywhere; }
+  .d-meta td.l1 { width: 27.5mm; padding-left: 9mm; font-weight: 700; white-space: nowrap; }
+  .d-meta td.v1 { width: 49mm; padding-right: 1mm; }
+  .d-meta td.l2 { width: 35mm; text-align: right; font-weight: 700; padding-right: 2mm; white-space: nowrap; }
   .d-title { background: #DDEBF7; text-align: center; font-weight: 700; font-size: 11.5pt; height: 9.6mm; line-height: 9.6mm; }
   .d-dear { padding: 1.2mm 0 0 0.6mm; line-height: 4.8mm; }
 
@@ -868,6 +871,10 @@
   fillFields();
   renderItems();
   renderPaper();
+  // lay the pages out again once the web font has arrived, since it changes how much fits on a page
+  if (document.fonts && document.fonts.load) {
+    Promise.all([document.fonts.load('9.5pt Carlito'), document.fonts.load('700 9.5pt Carlito')]).then(renderPaper, function () {});
+  }
 })();
 </script>
 </body>
