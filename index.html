@@ -58,6 +58,31 @@
   .ocr.over { border-color: var(--teal); background: #e8f6f6; }
   .ocr b { display: block; color: var(--navy); font-size: 13px; margin-bottom: 2px; }
   .ocr .btn { display: inline-block; color: var(--ink); }
+  .btn.wa { background: #25D366; border-color: #25D366; color: #fff; font-weight: 600; }
+  .btn.wa:hover { background: #1ebe5b; }
+  a.btn.wa { text-decoration: none; display: inline-block; }
+  a.btn.wa.off { opacity: .55; }
+  .wa-row { display: flex; gap: 6px; align-items: center; margin-top: 8px; }
+  #waMsg { resize: vertical; font-size: 12px; width: 100%; }
+  .wa-msg { display: block; margin-top: 6px; }
+  .sv-row { display: flex; gap: 6px; flex-wrap: wrap; }
+  .sv-slots { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 10px; }
+  .sv { border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; background: #f6f7fb; font-size: 12px; }
+  .sv.open { border-color: var(--teal); background: #e8f6f6; }
+  .sv b { display: block; font-size: 13px; color: var(--navy); }
+  .sv .amt { font-size: 15px; font-weight: 700; color: var(--ink); margin: 2px 0; }
+  .sv .meta { color: var(--muted); }
+  .sv { position: relative; cursor: pointer; text-align: left; }
+  .sv:hover { border-color: var(--teal); }
+  .sv .del { position: absolute; top: 4px; right: 6px; border: 0; background: none; color: var(--muted); cursor: pointer; font-size: 13px; padding: 2px 4px; }
+  .sv .del:hover { color: var(--danger); }
+  .sv-add { border: 1px dashed var(--line); border-radius: 8px; background: #fff; min-height: 74px; font-size: 26px; color: var(--navy); cursor: pointer; }
+  .sv-add small { display: block; font-size: 11px; color: var(--muted); }
+  .sv-add:hover { border-color: var(--teal); background: #e8f6f6; }
+  @media (max-width: 520px) { .sv-slots { grid-template-columns: 1fr; } }
+  .wa-lang { display: flex; margin-top: 8px; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; width: max-content; }
+  .wa-lang button { border: 0; background: #fff; padding: 5px 12px; font-size: 12px; cursor: pointer; color: var(--ink); }
+  .wa-lang button.on { background: var(--navy); color: #fff; }
   .ocr textarea { width: 100%; margin: 4px 0 6px; font-size: 12px; resize: vertical; }
   .ocr-btns { display: flex; gap: 6px; }
   #ocrStatus { margin-top: 6px; color: var(--ink); white-space: pre-line; }
@@ -89,6 +114,7 @@
   .item-head { display: flex; align-items: center; gap: 6px; margin-bottom: 8px; }
   .item-head .no { font-weight: 700; color: var(--navy); width: 22px; }
   .item-head select { flex: 1; padding: 4px 6px; font-size: 12px; }
+  .item-head .mode-fixed { flex: 1; font-size: 12px; color: var(--muted); padding: 4px 2px; }
   .item-row { display: grid; grid-template-columns: 1fr 1fr 1.2fr 1fr; gap: 6px; margin-top: 8px; }
   .item-foot { display: flex; justify-content: space-between; align-items: center; margin-top: 8px; font-size: 12px; color: var(--muted); }
   .item-foot b { color: var(--ink); font-size: 13px; }
@@ -261,6 +287,28 @@
         </label>
       </section>
 
+      <section>
+        <h2>4 · Save <small>保存报价</small></h2>
+        <div class="sv-slots" id="svSlots"></div>
+      </section>
+
+      <section>
+        <h2>5 · WhatsApp <small>发给顾客</small></h2>
+        <div class="grid">
+          <label class="full">Client phone 顾客电话<input data-path="client.tel" placeholder="012-345 6789"></label>
+        </div>
+        <div class="wa-lang">
+          <button type="button" class="on" data-walang="en">English</button>
+          <button type="button" data-walang="zh">中文</button>
+        </div>
+        <label class="full wa-msg">Message 讯息<textarea id="waMsg" rows="12"></textarea></label>
+        <div class="wa-row">
+          <a class="btn wa" id="btnWa" href="#" target="_blank" rel="noopener">Open WhatsApp 打开 WhatsApp</a>
+          <button class="btn small" id="waReset" type="button" title="Rewrite the message from the quotation">↺</button>
+        </div>
+        <p class="hint" id="waNote"></p>
+      </section>
+
     </div>
   </aside>
 
@@ -372,19 +420,18 @@ window.QUOTE_ACCEPT = "By signing below, I have confirmed that I have read above
     { id: 'train', box: 'st', cat: 'st', label: 'Training Management', line: 'TRAINING MANAGEMENT' },
     { id: 'rec', box: 'st', cat: 'rec', label: 'E-Recruitment', line: 'E - RECRUITMENT', note: '(yearly)' }
   ];
+  var FIXED_MODE = { op: 'monthly', st: 'monthly', rec: 'yearly' };
   var ROW_HEAD = { op: 'HR OPERATIONAL MODULE', st: 'HR STRATEGIC MODULE', rec: 'HR STRATEGIC MODULE' };
   // default price per user per month of the combined Operation row:
   // Attendance/Leave/Payroll/Claim at the module price, plus the add-on price when any add-on is ticked
   var OP_CORE = ['att', 'leave', 'pay', 'claim'], OP_ADDON = ['pc', 'travel', 'stamp'];
-  // with "分开人数" ticked, every module is priced on its own: Operation RM3, Strategic RM5 per user per month
-  var SPLIT_PRICE = { op: 3, st: 5 };
+  // default price per user per month: each ticked module adds RM3 (Operation) or RM5 (Strategic);
+  // E-Recruitment keeps its own yearly price. A price typed into the item box can still change it.
+  var FEAT_PRICE = { op: 3, st: 5 };
   function rowPrice(cat, ids) {
-    var t = state.term, on = function (id) { return ids ? ids.indexOf(id) >= 0 : state.feat[id]; };
-    if (SPLIT_PRICE[cat] && state.split && state.split[cat]) {
-      return SPLIT_PRICE[cat] * FEATS.filter(function (f) { return f.cat === cat && on(f.id); }).length;
-    }
-    if (cat === 'op') return (OP_CORE.some(on) ? CAT.op.price[t] : 0) + (OP_ADDON.some(on) ? CAT.opx.price[t] : 0);
-    return CAT[cat].price[t];
+    var on = function (id) { return ids ? ids.indexOf(id) >= 0 : state.feat[id]; };
+    if (FEAT_PRICE[cat]) return FEAT_PRICE[cat] * FEATS.filter(function (f) { return f.cat === cat && on(f.id); }).length;
+    return CAT[cat].price[state.term];
   }
   // order the rows appear in on the quotation
   var ROW_ORDER = ['op', 'opx', 'st', 'rec', 'ren2', 'ren3', 'impl', 'implhrdf', 'retrain'];
@@ -627,12 +674,17 @@ window.QUOTE_ACCEPT = "By signing below, I have confirmed that I have read above
       // implementation is set in step 2 (type + price), so it is not listed here; it still prints on the quotation
       if (IMPL_CATS.indexOf(it.cat) >= 0) return '';
       shown++;
+      // module rows have a fixed way of calculating: Operation/Strategic monthly, E-Recruitment yearly
+      var fixed = FIXED_MODE[it.cat];
+      if (fixed) it.mode = fixed;
       var sub = it.mode !== 'once';
       return '<div class="item" data-i="' + i + '">' +
         '<div class="item-head"><span class="no">' + shown + '</span>' +
-        '<select data-k="mode" title="How the total is calculated">' +
-        opt('monthly', 'Qty × Price × Months', it.mode) + opt('yearly', 'Price × Years', it.mode) + opt('once', 'Qty × Price (one-time)', it.mode) +
-        '</select>' +
+        (fixed
+          ? '<span class="mode-fixed">' + (fixed === 'yearly' ? 'Price × Years' : 'Qty × Price × Months') + '</span>'
+          : '<select data-k="mode" title="How the total is calculated">' +
+            opt('monthly', 'Qty × Price × Months', it.mode) + opt('yearly', 'Price × Years', it.mode) + opt('once', 'Qty × Price (one-time)', it.mode) +
+            '</select>') +
         '<button class="btn small" data-act="up" title="Move up">↑</button>' +
         '<button class="btn small" data-act="down" title="Move down">↓</button>' +
         '<button class="btn small danger" data-act="del" title="Remove">✕</button></div>' +
@@ -649,15 +701,14 @@ window.QUOTE_ACCEPT = "By signing below, I have confirmed that I have read above
   function opt(v, label, cur) { return '<option value="' + v + '"' + (v === cur ? ' selected' : '') + '>' + label + '</option>'; }
 
   function buildStatic() {
-    var groups = {}, order = [];
-    // software rows come from the tick boxes and implementation from step 2, so they are not listed here
-    CATALOG.forEach(function (c) {
-      if (c.group === 'Software' || IMPL_CATS.indexOf(c.id) >= 0) return;
-      if (!groups[c.group]) { groups[c.group] = []; order.push(c.group); } groups[c.group].push(c);
-    });
-    $('addItem').innerHTML = '<option value="">— choose an item to add —</option>' + order.map(function (g) {
-      return '<optgroup label="' + g + '">' + groups[g].map(function (c) { return '<option value="' + c.id + '">' + esc(c.label) + '</option>'; }).join('') + '</optgroup>';
-    }).join('');
+    // software rows come from the tick boxes and implementation from step 2, so they are not listed here.
+    // Order chosen for the list; anything in the catalogue not named here goes just before Custom item.
+    var ADD_ORDER = ['mb40', 'f22', 'zkremote', 'onsite', 'integ', 'door', 'fr1200', 'retrain', 'custom'];
+    var list = CATALOG.filter(function (c) { return c.group !== 'Software' && IMPL_CATS.indexOf(c.id) < 0; });
+    var rank = function (c) { var r = ADD_ORDER.indexOf(c.id); return r < 0 ? ADD_ORDER.length - 1.5 : r; };
+    list.sort(function (x, y) { return rank(x) - rank(y); });
+    $('addItem').innerHTML = '<option value="">— choose an item to add —</option>' +
+      list.map(function (c) { return '<option value="' + c.id + '">' + esc(c.label) + '</option>'; }).join('');
   }
 
   // --------------------------------------------------------------- preview
@@ -685,7 +736,177 @@ window.QUOTE_ACCEPT = "By signing below, I have confirmed that I have read above
     return k > 0 ? '<b>' + esc(line.slice(0, k + 1)) + '</b>' + esc(line.slice(k + 1)) : esc(line);
   }
 
+  // ---- WhatsApp ----
+  var waEdited = false;
+  function waPhone(t) {
+    var d = String(t || '').replace(/\D/g, '');
+    if (!d) return '';
+    if (d.indexOf('60') === 0) return d;        // already has Malaysia's country code
+    if (d.charAt(0) === '0') return '6' + d;    // 012… → 6012…
+    return d;
+  }
+  // totals of this quotation as a 1-year and as a 3-year plan (SST included)
+  // ---- Saved versions: "+" keeps the quotation on screen as a card; a card brings it back ----
+  var SAVED_KEY = STORE_KEY + ':saved';
+  var saved = (function () {
+    var v;
+    try { v = JSON.parse(localStorage.getItem(SAVED_KEY)) || {}; } catch (e) { v = {}; }
+    if (!Array.isArray(v.list)) v = { list: [v.y1, v.y3].filter(Boolean) };   // older 1-year / 3-year slots
+    return v;
+  })();
+  var openId = null;
+  function storeSaved() { try { localStorage.setItem(SAVED_KEY, JSON.stringify(saved)); } catch (e) { /* storage full or off */ } }
+  // money of the quotation now on screen: subscription part and one-time part, SST included
+  function currentCalc() {
+    var sub = 0, once = 0;
+    state.items.forEach(function (it) { if (it.mode === 'once') once += itemTotal(it); else sub += itemTotal(it); });
+    var k = state.sstOn ? 1 + num(state.sstRate) / 100 : 1;
+    var r2 = function (n) { return Math.round(n * k * 100) / 100; };
+    return { total: totals().total, sub: r2(sub), once: r2(once) };
+  }
+  // newest saved version of a 1-year (12) or 3-year (36) quotation, used for the WhatsApp comparison
+  // (the opened version first, then the newest one with the same number of users as the quotation on screen)
+  function latestSaved(term) {
+    var list = saved.list.filter(function (v) { return num(v.state.term) === term; });
+    var open = list.filter(function (v) { return v.id === openId; })[0];
+    if (open) return open;
+    var same = list.filter(function (v) { return num(v.state.users) === num(state.users); });
+    return same[same.length - 1] || null;
+  }
+  function renderSaved() {
+    $('svSlots').innerHTML = saved.list.map(function (v, i) {
+      var t = num(v.state.term) === 36 ? '3-year 3年' : '1-year 1年';
+      return '<div class="sv' + (openId === v.id ? ' open' : '') + '" data-svopen="' + i + '" title="Open this version 打开这个版本">' +
+        '<button class="del" type="button" data-svdel="' + i + '" title="Delete 删除">✕</button>' +
+        '<b>' + (i + 1) + ' · ' + t + '</b>' +
+        '<div class="amt">' + esc(v.state.currency) + money(v.calc.total) + '</div>' +
+        '<div class="meta">' + num(v.state.users) + ' users · ' + esc(v.time) + (openId === v.id ? ' · open 已打开' : '') + '</div></div>';
+    }).join('') + '<button class="sv-add" id="svAdd" type="button" title="Save the quotation on screen 保存目前的报价">+<small>Save 保存</small></button>';
+  }
+  $('svSlots').addEventListener('click', function (e) {
+    var del = e.target.closest('[data-svdel]');
+    if (del) {
+      var gone = saved.list.splice(+del.dataset.svdel, 1)[0];
+      if (gone && gone.id === openId) openId = null;
+      storeSaved(); waEdited = false; renderSaved(); renderWa();
+      return;
+    }
+    if (e.target.closest('#svAdd')) {
+      var d = new Date(), id = Date.now();
+      saved.list.push({
+        id: id,
+        state: JSON.parse(JSON.stringify(state)),
+        calc: currentCalc(),
+        time: d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short' }) + ' ' + d.toTimeString().slice(0, 5)
+      });
+      openId = id;
+      storeSaved(); waEdited = false; renderSaved(); renderWa();
+      return;
+    }
+    var card = e.target.closest('[data-svopen]');
+    if (!card) return;
+    var v = saved.list[+card.dataset.svopen];
+    state = JSON.parse(JSON.stringify(v.state));
+    openId = v.id;
+    save(); fillFields(); renderItems(); renderPaper();
+    window.scrollTo(0, 0);
+  });
+
+  function planTotals(term) {
+    var sub = 0, once = 0;
+    state.items.forEach(function (it) {
+      if (it.mode === 'once') { once += itemTotal(it); return; }
+      var c = CAT[it.cat], price = num(it.price);
+      if (c && c.price && !it.manualPrice) price = FEAT_PRICE[it.cat] ? rowPrice(it.cat, it.feats) : c.price[term];
+      var months = c && c.months ? num(it.months) : term;       // fixed-length items keep their months
+      sub += it.mode === 'monthly' ? num(it.qty) * price * months : price * months / 12;
+    });
+    var k = state.sstOn ? 1 + num(state.sstRate) / 100 : 1;
+    var r2 = function (n) { return Math.round(n * k * 100) / 100; };
+    return { total: r2(sub + once), sub: r2(sub), once: r2(once) };
+  }
+  var waLang = 'en';
+  function waText() {
+    // saved quotations give the real numbers; otherwise they are worked out from the one on screen
+    var s1 = latestSaved(12), s3 = latestSaved(36);
+    var y1 = s1 ? s1.calc : planTotals(12), y3 = s3 ? s3.calc : planTotals(36);
+    var free = s3 ? num(s3.state.promoMonths) : (state.term === 36 ? num(state.promoMonths) : 3);
+    // savings on the subscription only (implementation is paid once either way):
+    // 3 years paid yearly − 3-year plan, plus the free months at the 1-year price
+    var save = Math.round((y1.sub * 3 - y3.sub + y1.sub / 12 * free) * 100) / 100;
+    var base = (s3 || s1 || { state: state }).state;
+    var cur = base.currency, users = num(base.users);
+    if (waLang === 'zh') {
+      return '感谢您对 Worksy 的兴趣！😊 以下是 ' + users + ' 位用户的报价：\n\n' +
+        '1年配套：' + cur + money(y1.total) + '\n' +
+        '3年配套：' + cur + money(y3.total) + (free ? '（36个月，额外赠送' + free + '个月 🎁 ）' : '（36个月）') + '\n\n' +
+        (save > 0 ? '💰 选择3年配套总共可节省：' + cur + money(save) + '\n\n' : '') +
+        '如有任何疑问或想进一步讨论，欢迎随时告诉我 🙌';
+    }
+    return 'Thank you for your interest in Worksy ! 😊 Here is the pricing for ' + users + ' users:\n\n' +
+      '1-year plan: ' + cur + money(y1.total) + '\n' +
+      '3-year plan: ' + cur + money(y3.total) + (free ? ' (36 months + ' + free + ' months free 🎁 )' : ' (36 months)') + '\n\n' +
+      (save > 0 ? '💰 Total savings with the 3-year plan: ' + cur + money(save) + '\n\n' : '') +
+      'Feel free to let me know if you have any questions or would like to discuss further 🙌';
+  }
+  document.querySelectorAll('[data-walang]').forEach(function (b) {
+    b.addEventListener('click', function () {
+      waLang = b.dataset.walang; waEdited = false;
+      document.querySelectorAll('[data-walang]').forEach(function (x) { x.classList.toggle('on', x === b); });
+      renderWa();
+    });
+  });
+  function renderWa() { if (!waEdited) $('waMsg').value = waText(); updateWaLink(); }
+  $('waMsg').addEventListener('input', function () { waEdited = true; });
+  $('waReset').addEventListener('click', function () { waEdited = false; renderWa(); });
+  // WhatsApp on a computer (the desktop app) breaks emoji that arrive through a link, so there the
+  // chat is opened empty and the message goes to the clipboard to paste. Phones get the message in the link.
+  var waDesktop = !(window.matchMedia && matchMedia('(pointer: coarse)').matches);
+  function waLink() {
+    var n = waPhone(state.client.tel);
+    if (!n) return '';
+    return 'https://wa.me/' + n + (waDesktop ? '' : '?text=' + encodeURIComponent($('waMsg').value));
+  }
+  function updateWaLink() {
+    var u = waLink(), a = $('btnWa');
+    a.href = u || '#';
+    a.classList.toggle('off', !u);
+  }
+  function copyText(t) {
+    if (navigator.clipboard && navigator.clipboard.writeText) return navigator.clipboard.writeText(t).catch(function () { return copyOld(t); });
+    return copyOld(t);
+  }
+  function copyOld(t) {
+    return new Promise(function (ok, fail) {
+      var x = document.createElement('textarea');
+      x.value = t; x.style.position = 'fixed'; x.style.opacity = '0';
+      document.body.appendChild(x); x.select();
+      var done = false;
+      try { done = document.execCommand('copy'); } catch (e) { /* not allowed */ }
+      x.remove();
+      done ? ok() : fail(new Error('copy'));
+    });
+  }
+  if (waDesktop) $('btnWa').textContent = 'Copy & open WhatsApp 复制并打开';
+  $('waMsg').addEventListener('input', updateWaLink);
+  $('btnWa').addEventListener('click', function (e) {
+    updateWaLink();
+    if (!waLink()) {
+      e.preventDefault();
+      $('waNote').textContent = 'Please fill in the client phone number first. 请先填写顾客电话。';
+      return;
+    }
+    if (!waDesktop) { $('waNote').textContent = ''; return; }
+    copyText($('waMsg').value).then(function () {
+      $('waNote').textContent = '';
+    }, function () {
+      $('waNote').textContent = 'Could not copy. Select the message above and copy it by hand. 无法复制，请手动复制上面的讯息。';
+    });
+  });
+
   function renderPaper() {
+    renderWa();
+    renderSaved();
     var s = state, c = s.client, t = totals(), cur = s.currency;
     var rows = s.items.map(function (it, i) {
       return '<tr><td>' + (i + 1) + '</td><td class="desc">' + descHtml(it.desc.replace(/\s+$/, '') + promoText(it)) + '</td>' +
@@ -818,6 +1039,8 @@ window.QUOTE_ACCEPT = "By signing below, I have confirmed that I have read above
     var path = el.dataset.path, old = get(path);
     var v = el.type === 'checkbox' ? el.checked : (el.hasAttribute('data-num') ? num(el.value) : el.value);
     set(path, v);
+    // the same field can appear twice (client phone in step 1 and in WhatsApp): keep both in step
+    document.querySelectorAll('[data-path="' + path + '"]').forEach(function (o) { if (o !== el && o.type !== 'checkbox') o.value = el.value; });
     if (path === 'ref') state.refAuto = !v || v === autoRef(state.date);
     if (path === 'date' && state.refAuto) { state.ref = autoRef(v); document.querySelector('[data-path="ref"]').value = state.ref; }
     if (path === 'users') {
@@ -880,7 +1103,11 @@ window.QUOTE_ACCEPT = "By signing below, I have confirmed that I have read above
       renderItems(true);   // keep the cursor in the box being typed in
     } else if (el.dataset.feat) {
       state.feat[el.dataset.feat] = el.checked;
-      FEATS.forEach(function (f) { if (f.id === el.dataset.feat) syncRow(f.cat); });
+      FEATS.forEach(function (f) {
+        if (f.id !== el.dataset.feat) return;
+        state.items.forEach(function (it) { if (it.cat === f.cat) it.manualPrice = false; });
+        syncRow(f.cat);
+      });
       renderItems();
     } else if (el.dataset.k) {
       var it = state.items[+el.closest('.item').dataset.i];
@@ -926,7 +1153,7 @@ window.QUOTE_ACCEPT = "By signing below, I have confirmed that I have read above
       .filter(function (l) { return l.length > 1; });
     var out = {}, used = {};
     var emailRe = /[A-Za-z0-9._%+-]+\s?@\s?[A-Za-z0-9-]+(?:\.[A-Za-z0-9-]+)+/;
-    var telRe = /(?<!\d)\+?6?0\d{1,2}[\s-]?\d{3,4}[\s-]?\d{3,4}(?!\d)/g;
+    var telRe = /(?<!\d)(?:\+?6\s?)?0[\s.\-]?\d{1,2}[\s.\-]?\d{3,4}[\s.\-]?\d{3,4}(?!\d)/g;
     var coRe = /\b(sdn\.?\s*bhd\.?|berhad|bhd\.?|plt|enterprise|pte\.?\s*ltd\.?|ltd\.?|limited|inc\.?|corporation|holdings)(?=[\s,.)]|$)/i;
     var posRe = /\b(manager|director|executive|officer|head of|assistant|supervisor|engineer|ceo|cfo|coo|cto|founder|president|consultant|administrator|accountant|human resources?|specialist|partner|owner|coordinator|analyst|secretary|clerk|principal)\b/i;
     var addrRe = /\b(\d{5}|jalan|jln|lorong|taman|persiaran|lebuh|lot|level|floor|tingkat|block|blok|kawasan|bandar|seksyen|section|street|road|plaza|menara|wisma|tower|suite|industri\w*|selangor|kuala lumpur|johor|penang|pulau pinang|perak|melaka|sabah|sarawak|kedah|pahang|negeri sembilan|kelantan|terengganu|putrajaya)\b/i;
@@ -956,8 +1183,8 @@ window.QUOTE_ACCEPT = "By signing below, I have confirmed that I have read above
       });
     });
     if (tels.length) {
-      var pick = tels.filter(function (x) { return /^\+?6?01/.test(x.t.replace(/[\s-]/g, '')); })[0] || tels[0];
-      out.tel = pick.t;
+      var pick = tels.filter(function (x) { return /^\+?6?01/.test(x.t.replace(/[\s.\-]/g, '')); })[0] || tels[0];
+      out.tel = formatPhone(pick.t);
       tels.forEach(function (x) { if (!addrRe.test(lines[x.i].replace(telRe, ''))) used[x.i] = 1; });
     }
 
@@ -996,16 +1223,75 @@ window.QUOTE_ACCEPT = "By signing below, I have confirmed that I have read above
       for (var j = first; j <= last; j++) if (!used[j]) parts.push(lines[j]);
       var addr = parts.join(', ').replace(/^(?:address|alamat|地址)\s*[:：\-]?\s*/i, '').replace(telRe, '')
         .replace(/\s*,[\s,]*/g, ', ').replace(/[,\s]+$/, '');
-      var bits = addr.split(', '), rows = ['', '', ''], r = 0;
-      var target = Math.max(26, Math.ceil(addr.length / 3));
-      bits.forEach(function (b) {
-        if (rows[r] && r < 2 && (rows[r] + ', ' + b).length > target) r++;
-        rows[r] += (rows[r] ? ', ' : '') + b;
-      });
-      rows = rows.filter(Boolean);
-      rows.forEach(function (x, k) { out['a' + (k + 1)] = x + (k < rows.length - 1 ? ',' : ''); });
+      layoutAddress(addr).forEach(function (x, k) { out['a' + (k + 1)] = x; });
     }
+    // "at ABC Sdn Bhd" / "@ ABC Sdn Bhd" → "ABC Sdn Bhd"
+    if (out.company) out.company = out.company.replace(/^(?:at|@|from|of)\s+/i, '').trim();
     return out;
+  }
+  // Malaysian number as written on the quotation: 011-2346 8392, 012-345 6789, 03-1234 5678
+  // (no +60 / 60 in front)
+  function formatPhone(t) {
+    var d = String(t || '').replace(/\D/g, '');
+    if (d.indexOf('60') === 0 && d.length >= 10) d = '0' + d.slice(2);
+    else if (d.charAt(0) !== '0' && d.length >= 8 && d.length <= 10) d = '0' + d;
+    if (/^01/.test(d)) {
+      if (d.length === 11) return d.slice(0, 3) + '-' + d.slice(3, 7) + ' ' + d.slice(7);
+      if (d.length === 10) return d.slice(0, 3) + '-' + d.slice(3, 6) + ' ' + d.slice(6);
+    } else if (/^0[3-9]/.test(d)) {
+      if (d.length === 10) return d.slice(0, 2) + '-' + d.slice(2, 6) + ' ' + d.slice(6);
+      if (d.length === 9) return d.slice(0, 2) + '-' + d.slice(2, 5) + ' ' + d.slice(5);
+    }
+    return String(t).trim();
+  }
+  // width of a line as printed in the quotation's address column
+  var measureCtx = null;
+  function textWidth(t) {
+    try {
+      if (!measureCtx) { measureCtx = document.createElement('canvas').getContext('2d'); measureCtx.font = "9.5pt 'Carlito QB', Carlito, Arial, sans-serif"; }
+      return measureCtx.measureText(t).width;
+    } catch (e) { return t.length * 5.3; }
+  }
+  // Lay an address out in 2 or 3 lines that fit the address column (about 185 px).
+  // Lines may break anywhere between words; a break after a comma is preferred,
+  // and the postcode (5 digits) starts the last line when it can.
+  function layoutAddress(addr) {
+    var MAX = 182;
+    var words = addr.replace(/\s+/g, ' ').trim().split(' ').filter(Boolean);
+    if (!words.length) return [];
+    var line = function (a, b) { return words.slice(a, b).join(' '); };
+    var pc = -1;
+    words.forEach(function (w, i) { if (pc < 0 && i > 0 && /^\d{5},?$/.test(w)) pc = i; });
+    function cost(breaks) {
+      var cuts = [0].concat(breaks, [words.length]), worst = 0, pen = 0;
+      for (var k = 0; k < cuts.length - 1; k++) {
+        if (cuts[k + 1] <= cuts[k]) return Infinity;
+        var w = textWidth(line(cuts[k], cuts[k + 1]));
+        worst = Math.max(worst, w);
+        if (w > MAX) pen += 1000 + (w - MAX) * 10;
+      }
+      breaks.forEach(function (b) {
+        if (!/,$/.test(words[b - 1])) pen += 25;   // prefer breaking after a comma
+      });
+      if (pc > 0 && breaks[breaks.length - 1] !== pc) pen += 40;   // postcode starts the last line
+      return worst + pen;
+    }
+    var best = null, bestCost = Infinity, n = words.length;
+    for (var i = 1; i < n; i++) {                       // 2 lines
+      var c2 = cost([i]);
+      if (c2 < bestCost) { bestCost = c2; best = [i]; }
+    }
+    // only use 3 lines when 2 lines do not fit
+    if (!best || bestCost >= 1000) {
+      for (var a = 1; a < n - 1; a++) for (var b = a + 1; b < n; b++) {
+        var c3 = cost([a, b]) - 15;
+        if (c3 < bestCost) { bestCost = c3; best = [a, b]; }
+      }
+    }
+    if (!best) return [addr];
+    var cuts = [0].concat(best, [n]), rows = [];
+    for (var k = 0; k < cuts.length - 1; k++) rows.push(line(cuts[k], cuts[k + 1]));
+    return rows;
   }
   /*PARSE-END*/
 
@@ -1022,19 +1308,79 @@ window.QUOTE_ACCEPT = "By signing below, I have confirmed that I have read above
       document.head.appendChild(s);
     });
   }
+  // turn any photo the browser can show into a clean, not-too-large picture for the reader
+  // (very large phone photos and some formats otherwise fail)
+  function prepareImage(file) {
+    function toCanvas(src, w, h) {
+      var max = 1600, k = Math.min(1, max / Math.max(w, h));
+      if (w < 500) k = 800 / w;          // only very small screenshots are enlarged
+      var c = document.createElement('canvas');
+      c.width = Math.round(w * k); c.height = Math.round(h * k);
+      var g = c.getContext('2d');
+      g.fillStyle = '#fff'; g.fillRect(0, 0, c.width, c.height);
+      g.drawImage(src, 0, 0, c.width, c.height);
+      return c;
+    }
+    // 1st try: createImageBitmap (needs no blob: link); 2nd: a data: link; if both fail the
+    // original file goes to the reader unchanged, as before
+    var viaBitmap = window.createImageBitmap
+      ? createImageBitmap(file).then(function (b) { return toCanvas(b, b.width, b.height); })
+      : Promise.reject(new Error('no bitmap'));
+    return viaBitmap.catch(function () {
+      return new Promise(function (ok, fail) {
+        var r = new FileReader();
+        r.onload = function () {
+          var img = new Image();
+          img.onload = function () { ok(toCanvas(img, img.naturalWidth, img.naturalHeight)); };
+          img.onerror = function () { fail(new Error('decode')); };
+          img.src = r.result;
+        };
+        r.onerror = function () { fail(new Error('decode')); };
+        r.readAsDataURL(file);
+      });
+    }).catch(function () { return file; });
+  }
+  var ocrBusy = false, ocrWorker = null, ocrPhase = '';
+  // the reader is started once and kept, so the 2nd photo onwards is fast
+  function getWorker() {
+    if (!ocrWorker) {
+      ocrWorker = loadOcr().then(function () {
+        return window.Tesseract.createWorker('eng', 1, {
+          langPath: 'https://cdn.jsdelivr.net/npm/@tesseract.js-data/eng@1.0.0/4.0.0_best_int',
+          logger: function (m) {
+            if (m.status === 'recognizing text') ocrStatus('Reading… 读取中 ' + Math.round(m.progress * 100) + '%');
+            else if (ocrPhase === 'load' && m.progress) ocrStatus('Loading reader… 载入读取工具 ' + Math.round(m.progress * 100) + '%');
+          }
+        });
+      });
+      ocrWorker.catch(function () { ocrWorker = null; });
+    }
+    return ocrWorker;
+  }
   function readImage(file) {
     if (!file || !/^image\//.test(file.type)) { ocrStatus('Not a photo. 不是照片'); return; }
-    ocrStatus('Reading… 读取中');
-    loadOcr().then(function () {
-      return window.Tesseract.recognize(file, 'eng', {
-        langPath: 'https://cdn.jsdelivr.net/npm/@tesseract.js-data/eng@1.0.0/4.0.0_best_int',
-        logger: function (m) { if (m.status === 'recognizing text') ocrStatus('Reading… 读取中 ' + Math.round(m.progress * 100) + '%'); }
-      });
+    if (ocrBusy) return;
+    ocrBusy = true;
+    ocrPhase = 'load';
+    ocrStatus(ocrWorker ? 'Reading… 读取中' : 'Loading reader… 载入读取工具');
+    var stage = 'load', timer;
+    Promise.all([prepareImage(file), getWorker()]).then(function (r) {
+      stage = 'read'; ocrPhase = 'read';
+      ocrStatus('Reading… 读取中');
+      return Promise.race([
+        r[1].recognize(r[0]),
+        new Promise(function (ok, fail) { timer = setTimeout(function () { fail(new Error('timeout')); }, 60000); })
+      ]);
     }).then(function (res) {
+      clearTimeout(timer);
       applyFound(parseClient(res.data.text || ''));
     }).catch(function () {
-      ocrStatus('Could not read the photo. 无法读取照片');
-    });
+      clearTimeout(timer);
+      ocrStatus({
+        load: 'The photo reader could not load. Check the internet connection. 读取工具载入失败，请检查网络。',
+        read: 'Could not read this photo. Paste the text instead. 读不到照片，请直接贴文字。'
+      }[stage]);
+    }).then(function () { ocrBusy = false; ocrPhase = ''; });
   }
   function applyFound(found) {
     var keys = Object.keys(found);
@@ -1086,6 +1432,7 @@ window.QUOTE_ACCEPT = "By signing below, I have confirmed that I have read above
     clearTimeout(resetTimer); resetTimer = null;
     btn.textContent = 'New'; btn.classList.remove('danger');
     state = withTemplate(freshState(), TEMPLATES[0]);
+    saved = { list: [] }; openId = null; storeSaved();
     save();
     $('ocrText').value = ''; ocrStatus('');
     fillFields(); renderItems(); renderPaper();
